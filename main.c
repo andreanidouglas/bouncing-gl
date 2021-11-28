@@ -1,10 +1,92 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include "bouncing.h"
 
+
+#define WINDOW_WIDTH    800
+#define WINDOW_HEIGHT   600
+
+typedef struct _pix {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+
+} Pix;
+
+typedef struct _canvas {
+    Pix *pixels;    
+} Canvas;
+
+int canvas_init(Canvas *c){
+    c->pixels = malloc(WINDOW_HEIGHT * WINDOW_WIDTH * sizeof(Pix));
+    if (c->pixels == NULL) {
+        return 0;
+    }
+    
+    memset(c->pixels, 0, WINDOW_HEIGHT * WINDOW_WIDTH * sizeof(Pix));
+    return 1;
+}
+
+void canvas_destroy(Canvas c) {
+    free(c.pixels);
+}
+
+void canvas_clear(Canvas *c) {
+    Pix p = { .r = 51, .g = 51, .b = 51, .a = 255};
+    for (int i = 0; i < WINDOW_HEIGHT * WINDOW_WIDTH; ++i) {
+        c->pixels[i] = p;
+    }
+}
+
+
+
+void canvas_draw(Canvas *c, Grid g) {
+    int grid_size = grid_get_size(g);
+    int grid_width = grid_get_width(g);
+
+    for (int i = 0; i < grid_size; ++i) {
+        if (g.boxes[i] != NULL) {
+            //draw box on canvas
+            Box b = *g.boxes[i];
+            int box_idx = b.pos.x + b.pos.y * grid_width;
+            Pix p = { .r = 255, .g = 255, .b = 0, .a = 255};
+
+            for (int h = 0; h < b.h; ++h){
+                for (int w = 0; w < b.w; ++w) {
+                    c->pixels[box_idx + (w + h * WINDOW_WIDTH)] = p;
+                }
+            }
+        }
+    }
+}
+
+void canvas_save_to_ppm(Canvas c, char* fileout_path) {
+    FILE *f = fopen(fileout_path, "wb");
+    unsigned char color[3];
+    if (f == NULL) {
+        fprintf(stderr, "[ERROR]: could not open file for save: %s\n", strerror(errno));
+
+    }
+    fprintf(f, "P6\n%d %d\n255\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    for (int i = 0; i < WINDOW_HEIGHT * WINDOW_WIDTH; ++i) {
+        Pix p = c.pixels[i];
+        color[0] = p.r;
+        color[1] = p.g;
+        color[2] = p.b;
+        (void) fwrite(color, 1, 3, f);
+    }
+    fflush(f);
+    fclose(f);
+}
 
 void gl_message_callback(GLenum source,
                      GLenum type,
@@ -39,17 +121,21 @@ static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int act
 }
 
 static const GLchar* vert_shader = "#version 330 core\n" \
-                                   "layout (location = 0) in vec3 aPos;\n" \
-                                   "void main () \n" \
+                                   "out vec2 uv;\n" \
+                                   "void main ()\n" \
                                    "{\n" \
-                                   "    gl_Position = vec4(aPos, 1.0);\n" \
+                                   "    uv = vec2(gl_VertexID & 1, gl_VertexID >> 1);\n" \
+                                   "    gl_Position = vec4(2.0 * uv -1, 0.0, 1.0);\n" \
                                    "}";
 
 static const GLchar* frag_shader = "#version 330 core\n"\
-                                   "out vec4 FragColor;\n" \
+                                   "out vec4 color;\n" \
+                                   "in vec2 uv;\n" \
+                                   "uniform sampler2D frame;\n" \
                                    "void main ()\n" \
                                    "{\n" \
-                                   "    FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n" \
+                                   "    vec4 pixel = texture(frame, vec2(uv.x, uv.y));\n" \
+                                   "    color = vec4(pixel.xyz, 1.0f);\n" \
                                    "}";
 
 
@@ -154,17 +240,23 @@ int main () {
     }
 
 
+    
+
+
+    
+    // initialize vao
+    GLuint vao;
+    glCreateVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    
+    /** unused code
+     
     GLfloat vertices[] = {
         -0.1f, -0.1f, 0.0f,
          0.1f, -0.1f, 0.0f,
          0.0f,  0.1f, 0.0f
     };
 
-    // initialize vao
-    GLuint vao;
-    glCreateVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    
     // initialize vbo and bind it to the active vao
     GLuint vbo;
     glGenBuffers(1, &vbo);
@@ -172,7 +264,7 @@ int main () {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(GLfloat), (void *)0);
     glEnableVertexAttribArray(0);
-
+    end unused code **/
     
     
 
@@ -193,19 +285,65 @@ int main () {
         return 1;
     }
 
+    // Initialize simulation logic
+    Grid grid;
+    grid_init(&grid);
+
+    Box b1 = box_init( 30, 30, 200, 200);
+    Box b2 = box_init(240, 30, 200, 200);
+    Box b3 = box_init(450, 30, 200, 200);
+
+    place_box_in_grid(&grid, &b1);
+    place_box_in_grid(&grid, &b2);
+    place_box_in_grid(&grid, &b3);
+
+    
+    box_set_vel(&b1, veci2d_init(1, 1));
+    box_set_vel(&b2, veci2d_init(2, 2));
+    box_set_vel(&b3, veci2d_init(-1, -1));
+
+    Canvas canvas;
+    if (!canvas_init(&canvas)) {
+        fprintf(stderr, "[ERROR]: could not initialize canvas.");
+        return 1;
+    };
+    
+    canvas_clear(&canvas);
+    canvas_draw(&canvas, grid);
+
+    char* fileout = "canvas.ppm";
+    canvas_save_to_ppm(canvas, fileout);
+
+    // Create texture
+    glBindVertexArray(vao);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, canvas.pixels);
+
 
     while(!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+
         
-        glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
         glBindVertexArray(vao);
 
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glTextureSubImage2D(texture, 0, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, canvas.pixels);
 
+        grid_step(&grid);
+        canvas_clear(&canvas);
+        canvas_draw(&canvas, grid);
 
+        glClearColor(0.0, 0.0, 0.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glfwSwapBuffers(window);
-        glfwPollEvents();
+        
 
     }
 
@@ -213,5 +351,9 @@ int main () {
     printf("[INFO]: Exiting successfully\n");
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    grid_destroy(grid);
+    canvas_destroy(canvas);
+    
     return 0;
 }

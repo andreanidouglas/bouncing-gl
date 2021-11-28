@@ -1,4 +1,6 @@
 bouncing
-bouncing.o
+*.o
+
 
 .vscode/
+*.ppm
