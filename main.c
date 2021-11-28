@@ -13,6 +13,8 @@
 #define WINDOW_WIDTH    800
 #define WINDOW_HEIGHT   600
 
+
+// TODO: Factor out Canvas/Pixel to separate header
 typedef struct _pix {
     uint8_t r;
     uint8_t g;
@@ -128,6 +130,7 @@ static const GLchar* vert_shader = "#version 330 core\n" \
                                    "    gl_Position = vec4(2.0 * uv -1, 0.0, 1.0);\n" \
                                    "}";
 
+// TODO: Identify why the texture is upside down.
 static const GLchar* frag_shader = "#version 330 core\n"\
                                    "out vec4 color;\n" \
                                    "in vec2 uv;\n" \
@@ -238,17 +241,15 @@ int main () {
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(gl_message_callback, 0);
     }
-
-
-    
-
-
     
     // initialize vao
     GLuint vao;
     glCreateVertexArrays(1, &vao);
     glBindVertexArray(vao);
     
+
+    // TODO: Remove dead code
+    // TODO: Factor OpenGL code out of the main function
     /** unused code
      
     GLfloat vertices[] = {
@@ -266,10 +267,6 @@ int main () {
     glEnableVertexAttribArray(0);
     end unused code **/
     
-    
-
-
-
     GLuint vert = 0;
     if (!compile_shader_source(vert_shader, GL_VERTEX_SHADER, &vert)) {
         return 1;
@@ -286,6 +283,7 @@ int main () {
     }
 
     // Initialize simulation logic
+    // TODO: Factor the simulation piece out of the main function
     Grid grid;
     grid_init(&grid);
 
@@ -346,7 +344,6 @@ int main () {
         
 
     }
-
 
     printf("[INFO]: Exiting successfully\n");
     glfwDestroyWindow(window);

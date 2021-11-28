@@ -22,6 +22,8 @@ void box_update(Box *box) {
     box->pos = sum_veci2d(box->pos, box->vel);
 
     Veci2d new_vel = veci2d_init(1, 1);
+
+    // Collision between walls
     if (box->pos.x + box->w > GRID_WIDTH || box->pos.x <= 0) {
         new_vel = veci2d_init(-1, 1);
     }
@@ -31,6 +33,9 @@ void box_update(Box *box) {
         
     }
     box->vel = mul_veci2d(box->vel, new_vel);
+
+    // TODO: Implement collision between the boxes
+    // TODO: Change color of the box when it collides
 
 }
 

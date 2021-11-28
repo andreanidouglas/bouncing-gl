@@ -1,5 +1,7 @@
 #include "la.h"
 
+// TODO: document the Linear Algebrae operations
+
 Veci2d sum_veci2d (Veci2d a, Veci2d b) {
     Veci2d v;
 
