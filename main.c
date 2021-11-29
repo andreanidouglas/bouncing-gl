@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -63,15 +64,16 @@ void canvas_draw(Canvas *c, Grid g) {
 
             for (int h = 0; h < b.h; ++h){
                 for (int w = 0; w < b.w; ++w) {
-                    // TODO: (Critical) this is accessing grid memory when
-                    // dealing with large resolutions making the program to
-                    // segfault.
-                    c->pixels[box_idx + (w + h * WINDOW_WIDTH)] = p;
+                    int idx = box_idx + (w + h * WINDOW_WIDTH);
+                    if (idx < WINDOW_HEIGHT * WINDOW_WIDTH)
+                        c->pixels[box_idx + (w + h * WINDOW_WIDTH)] = p;
                 }
             }
         }
     }
 }
+
+
 
 void canvas_save_to_ppm(Canvas c, char* fileout_path) {
     FILE *f = fopen(fileout_path, "wb");
@@ -92,7 +94,7 @@ void canvas_save_to_ppm(Canvas c, char* fileout_path) {
     fflush(f);
     fclose(f);
 }
-
+#ifdef _DISPLAY
 void gl_message_callback(GLenum source,
                      GLenum type,
                      GLuint id,
@@ -145,6 +147,7 @@ static const GLchar* frag_shader = "#version 330 core\n"\
                                    "}";
 
 
+#endif
 const char *shader_type_as_cstr(GLuint shader)
 {
     switch (shader) {
@@ -156,7 +159,6 @@ const char *shader_type_as_cstr(GLuint shader)
         return "(Unknown)";
     }
 }
-
 int compile_shader_source(const GLchar *source, GLenum shader_type, GLuint *shader) {
 
     *shader = glCreateShader(shader_type);
@@ -206,6 +208,8 @@ int link_shader_program(GLuint vert_shader, GLuint frag_shader, GLuint *program)
 
 int main () {
 
+
+#ifdef _DISPLAY
     GLFWwindow *window;
 
     
@@ -250,7 +254,6 @@ int main () {
     glCreateVertexArrays(1, &vao);
     glBindVertexArray(vao);
     
-
     // TODO: Remove dead code
     // TODO: Factor OpenGL code out of the main function
     /** unused code
@@ -285,6 +288,7 @@ int main () {
         return 1;
     }
 
+#endif
     // Initialize simulation logic
     // TODO: Factor the simulation piece out of the main function
     Grid grid;
@@ -312,9 +316,10 @@ int main () {
     canvas_clear(&canvas);
     canvas_draw(&canvas, grid);
 
-    char* fileout = "canvas.ppm";
-    canvas_save_to_ppm(canvas, fileout);
+    //char* fileout = "canvas.ppm";
+    //canvas_save_to_ppm(canvas, fileout);
 
+#ifdef _DISPLAY
     // Create texture
     glBindVertexArray(vao);
 
@@ -348,10 +353,25 @@ int main () {
 
     }
 
-    printf("[INFO]: Exiting successfully\n");
     glfwDestroyWindow(window);
     glfwTerminate();
+#else
+    char fileout[30] = {0};
+    while (grid.step_count < 2000) {
+            grid_step(&grid);
+            canvas_clear(&canvas);
+            canvas_draw(&canvas, grid);
+            if ((grid.step_count % 10) == 0) {
+                    sprintf(fileout, "output/frame_%.4d.ppm", grid.step_count);
+                    canvas_save_to_ppm(canvas, fileout);
+            }
+    }
 
+#endif
+
+    
+
+    printf("[INFO]: Exiting successfully\n");
     grid_destroy(grid);
     canvas_destroy(canvas);
     

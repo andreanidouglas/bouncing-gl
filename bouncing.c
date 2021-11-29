@@ -86,9 +86,11 @@ void grid_step(Grid *grid) {
 }
 
 int grid_get_size(Grid g) {
+    (void)g;
     return GRID_HEIGHT * GRID_WIDTH;   
 }
 
 int grid_get_width(Grid g) {
+    (void)g;
     return GRID_WIDTH;
 }
