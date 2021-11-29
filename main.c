@@ -63,6 +63,9 @@ void canvas_draw(Canvas *c, Grid g) {
 
             for (int h = 0; h < b.h; ++h){
                 for (int w = 0; w < b.w; ++w) {
+                    // TODO: (Critical) this is accessing grid memory when
+                    // dealing with large resolutions making the program to
+                    // segfault.
                     c->pixels[box_idx + (w + h * WINDOW_WIDTH)] = p;
                 }
             }
